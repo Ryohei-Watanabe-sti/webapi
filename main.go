@@ -10,7 +10,8 @@ import (
 
 func main() {
 	log.Print("starting server...")
-	http.HandleFunc("/", handler)
+	http.HandleFunc("/hello", helloHandler)
+	http.HandleFunc("/", konnichihaHandler)
 
 	// Determine port for HTTP service.
 	port := os.Getenv("PORT")
@@ -26,10 +27,14 @@ func main() {
 	}
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
+func helloHandler(w http.ResponseWriter, r *http.Request) {
 	name := os.Getenv("NAME")
 	if name == "" {
 		name = "World"
 	}
 	fmt.Fprintf(w, "Hello %s!\n", name)
+}
+
+func konnichihaHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "こんにちは！")
 }
