@@ -37,4 +37,5 @@ func helloHandler(w http.ResponseWriter, r *http.Request) {
 
 func konnichihaHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "こんにちは！")
+
 }
