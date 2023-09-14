@@ -11,7 +11,7 @@ import (
 func main() {
 	log.Print("starting server...")
 	http.HandleFunc("/hello", helloHandler)
-	http.HandleFunc("/", konnichihaHandler)
+	http.HandleFunc("/post", postHandler)
 
 	// Determine port for HTTP service.
 	port := os.Getenv("PORT")
@@ -35,7 +35,15 @@ func helloHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hello %s!\n", name)
 }
 
-func konnichihaHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "こんにちは！")
+func postHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	name := r.FormValue("name")
+	if name == "" {
+		name = "World"
+	}
 
+	fmt.Fprintf(w, "Hello %s (via POST)!\n", name)
 }
