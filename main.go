@@ -2,6 +2,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -47,6 +48,9 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	db := getDB()
+	defer db.Close()
+
 	// リクエストボディからJSONデータを読み取り
 	var request stock
 	decoder := json.NewDecoder(r.Body)
@@ -66,4 +70,37 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(response))
+}
+
+func getDB() *sql.DB {
+	// cleanup, err := pgxv4.RegisterDriver("cloudsql-mysql", cloudsqlconn.WithIAMAuthN())
+	// if err != nil {
+	// 	log.Fatalf("Error on pgxv4.RegisterDriver: %v", err)
+	// }
+
+	dsn := fmt.Sprintf("host=%s user=%s dbname=%s sslmode=disable", os.Getenv("INSTANCE_CONNECTION_NAME"), os.Getenv("DB_USER"), os.Getenv("DB_NAME"))
+	db, err := sql.Open("cloudsql-mysql", dsn)
+	if err != nil {
+		log.Fatalf("Error on sql.Open: %v", err)
+	}
+
+	createVisits := `CREATE TABLE IF NOT EXISTS visits (
+	  id INT NOT NULL,
+	  created_at timestamp NOT NULL,
+	  PRIMARY KEY (id)
+	);`
+	_, err = db.Exec(createVisits)
+	if err != nil {
+		log.Fatalf("unable to create table: %s", err)
+	}
+
+	return db
+}
+
+func connectDB() *sql.DB {
+	db, err := sql.Open("mysql", "user:password@tcp(127.0.0.1:3306)/dbname?parseTime=true&loc=Asia%2FTokyo")
+	if err != nil {
+		log.Println(err)
+	}
+	return db
 }
