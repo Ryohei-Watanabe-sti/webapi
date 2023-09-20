@@ -57,6 +57,7 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 
 	db, err := connectWithConnector()
 	if err != nil {
+		log.Println(err)
 		http.Error(w, "Disable to connect db", http.StatusBadRequest)
 		return
 	}
@@ -71,6 +72,7 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 	);`
 	_, err = db.Exec(createTable)
 	if err != nil {
+		log.Println(err)
 		http.Error(w, "Disable to create table", http.StatusBadRequest)
 		return
 	}
@@ -95,6 +97,7 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 	);`
 	_, err = db.Exec(insert)
 	if err != nil {
+		log.Println(err)
 		http.Error(w, "Disable to insert data", http.StatusBadRequest)
 		return
 	}
@@ -180,7 +183,7 @@ func connectWithConnector() (*sql.DB, error) {
 			return d.Dial(ctx, instanceConnectionName, opts...)
 		})
 
-	dbURI := fmt.Sprintf("%s:%s@cloudsqlconn(localhost:3306)/%s?parseTime=true",
+	dbURI := fmt.Sprintf("%s:%s@cloudsqlconn(localhost:3306)/%s?parseTime=true&loc=Asia/Tokyo",
 		dbUser, dbPwd, dbName)
 
 	dbPool, err := sql.Open("mysql", dbURI)
