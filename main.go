@@ -51,7 +51,10 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	connectDB()
+	_, err := connectDB()
+	if err != nil {
+		return
+	}
 	// リクエストボディからJSONデータを読み取り
 	var request stock
 	decoder := json.NewDecoder(r.Body)
@@ -98,16 +101,16 @@ func getDB() *sql.DB {
 	return db
 }
 
-func connectDB() *gorm.DB {
+func connectDB() (*gorm.DB, error) {
 	// db, err := sql.Open("mysql", "user:password@tcp(127.0.0.1:3306)/dbname?parseTime=true&loc=Asia%2FTokyo")
 	// if err != nil {
 	// 	log.Println(err)
 	// }
 
-	dsn := "root:12345678@tcp(127.0.0.1:3306)/stocks?charset=utf8mb4&parseTime=True&loc=Local"
+	dsn := "root:12345678@tcp(35.229.213.42:3306)/stocks?charset=utf8mb4&parseTime=True&loc=Local"
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Println(err)
 	}
-	return db
+	return db, err
 }
