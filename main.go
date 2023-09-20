@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 
 	"cloud.google.com/go/cloudsqlconn"
 	"github.com/go-sql-driver/mysql"
@@ -54,9 +55,23 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := connectWithConnector()
+	db, err := connectWithConnector()
 	if err != nil {
 		http.Error(w, "Disable to connect db", http.StatusBadRequest)
+		return
+	}
+
+	createTable := `CREATE TABLE IF NOT EXISTS stocks (
+		id INR NOT NULL ,
+		name VARCHAR(8) NOT NULL,
+		amount INT NOT NULL,
+		created_at datetime NOT NULL,
+		updated_at datetime NOT NULL,
+		PRIMARY KEY (id)
+	);`
+	_, err = db.Exec(createTable)
+	if err != nil {
+		http.Error(w, "Disable to create table", http.StatusBadRequest)
 		return
 	}
 	// リクエストボディからJSONデータを読み取り
@@ -71,8 +86,21 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 	name := request.Name
 	amount := request.Amount
 
+	insert := `INSERT INTO stocks values(
+		0,
+		"` + name + `",
+		` + strconv.Itoa(amount) + `,
+		now(),
+		now()
+	);`
+	_, err = db.Exec(insert)
+	if err != nil {
+		http.Error(w, "Disable to insert data", http.StatusBadRequest)
+		return
+	}
+
 	// レスポンスを生成
-	response := fmt.Sprintf("name: %s\n amount: %d", name, amount)
+	response := fmt.Sprintf("name: %s\namount: %d", name, amount)
 
 	// レスポンスをクライアントに返す
 	w.Header().Set("Content-Type", "text/plain")
@@ -152,7 +180,7 @@ func connectWithConnector() (*sql.DB, error) {
 			return d.Dial(ctx, instanceConnectionName, opts...)
 		})
 
-	dbURI := fmt.Sprintf("%s:%s@cloudsqlconn(localhost:3306)/%s?parseTime=true",
+	dbURI := fmt.Sprintf("%s:%s@cloudsqlconn(localhost:3306)/%s?parseTime=true&loc=Asia%2FTokyo",
 		dbUser, dbPwd, dbName)
 
 	dbPool, err := sql.Open("mysql", dbURI)
