@@ -8,6 +8,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
 type stock struct {
@@ -48,9 +51,7 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db := getDB()
-	defer db.Close()
-
+	connectDB()
 	// リクエストボディからJSONデータを読み取り
 	var request stock
 	decoder := json.NewDecoder(r.Body)
@@ -97,8 +98,14 @@ func getDB() *sql.DB {
 	return db
 }
 
-func connectDB() *sql.DB {
-	db, err := sql.Open("mysql", "user:password@tcp(127.0.0.1:3306)/dbname?parseTime=true&loc=Asia%2FTokyo")
+func connectDB() *gorm.DB {
+	// db, err := sql.Open("mysql", "user:password@tcp(127.0.0.1:3306)/dbname?parseTime=true&loc=Asia%2FTokyo")
+	// if err != nil {
+	// 	log.Println(err)
+	// }
+
+	dsn := "root:12345678@tcp(127.0.0.1:3306)/stocks?charset=utf8mb4&parseTime=True&loc=Local"
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Println(err)
 	}
