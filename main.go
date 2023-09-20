@@ -57,6 +57,7 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 
 	db, err := connectWithConnector()
 	if err != nil {
+		log.Println(err)
 		http.Error(w, "Disable to connect db", http.StatusBadRequest)
 		return
 	}
@@ -71,6 +72,7 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 	);`
 	_, err = db.Exec(createTable)
 	if err != nil {
+		log.Println(err)
 		http.Error(w, "Disable to create table", http.StatusBadRequest)
 		return
 	}
@@ -95,6 +97,7 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 	);`
 	_, err = db.Exec(insert)
 	if err != nil {
+		log.Println(err)
 		http.Error(w, "Disable to insert data", http.StatusBadRequest)
 		return
 	}
