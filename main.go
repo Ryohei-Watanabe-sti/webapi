@@ -182,9 +182,9 @@ func connectWithConnector() (*sql.DB, error) {
 		func(ctx context.Context, addr string) (net.Conn, error) {
 			return d.Dial(ctx, instanceConnectionName, opts...)
 		})
-
-	dbURI := fmt.Sprintf("%s:%s@cloudsqlconn(localhost:3306)/%s?parseTime=true&loc=Asia/Tokyo",
-		dbUser, dbPwd, dbName)
+	loc := "&loc=Asia%2FTokyo"
+	dbURI := fmt.Sprintf("%s:%s@cloudsqlconn(localhost:3306)/%s?parseTime=true%s",
+		dbUser, dbPwd, dbName, loc)
 
 	dbPool, err := sql.Open("mysql", dbURI)
 	if err != nil {
