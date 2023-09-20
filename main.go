@@ -3,7 +3,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -13,8 +12,9 @@ import (
 	"strconv"
 
 	"cloud.google.com/go/cloudsqlconn"
-	"github.com/go-sql-driver/mysql"
-	//"gorm.io/driver/mysql"
+	con "github.com/go-sql-driver/mysql"
+	my "gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
 type stock struct {
@@ -26,6 +26,7 @@ func main() {
 	log.Print("starting server...")
 	http.HandleFunc("/hello", helloHandler)
 	http.HandleFunc("/post", postHandler)
+	http.HandleFunc("/get", getHandler)
 
 	// Determine port for HTTP service.
 	port := os.Getenv("PORT")
@@ -62,20 +63,18 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	createTable := `CREATE TABLE IF NOT EXISTS stocks (
-		id INT NOT NULL ,
-		name VARCHAR(8) NOT NULL,
-		amount INT NOT NULL,
-		created_at datetime NOT NULL,
-		updated_at datetime NOT NULL,
-		PRIMARY KEY (id)
-	);`
-	_, err = db.Exec(createTable)
-	if err != nil {
+	if err := createTable(db); err != nil {
 		log.Println(err)
 		http.Error(w, "Disable to create table", http.StatusBadRequest)
 		return
 	}
+
+	if err := createTable(db); err != nil {
+		log.Println(err)
+		http.Error(w, "Disable to create table", http.StatusBadRequest)
+		return
+	}
+
 	// リクエストボディからJSONデータを読み取り
 	var request stock
 	decoder := json.NewDecoder(r.Body)
@@ -95,7 +94,8 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 		now(),
 		now()
 	);`
-	_, err = db.Exec(insert)
+
+	err = db.Exec(insert).Error
 	if err != nil {
 		log.Println(err)
 		http.Error(w, "Disable to insert data", http.StatusBadRequest)
@@ -111,46 +111,11 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(response))
 }
 
-func getDB() *sql.DB {
-	// cleanup, err := pgxv4.RegisterDriver("cloudsql-mysql", cloudsqlconn.WithIAMAuthN())
-	// if err != nil {
-	// 	log.Fatalf("Error on pgxv4.RegisterDriver: %v", err)
-	// }
-
-	dsn := fmt.Sprintf("host=%s user=%s dbname=%s sslmode=disable", os.Getenv("INSTANCE_CONNECTION_NAME"), os.Getenv("DB_USER"), os.Getenv("DB_NAME"))
-	db, err := sql.Open("cloudsql-mysql", dsn)
-	if err != nil {
-		log.Fatalf("Error on sql.Open: %v", err)
-	}
-
-	createVisits := `CREATE TABLE IF NOT EXISTS visits (
-	  id INT NOT NULL,
-	  created_at timestamp NOT NULL,
-	  PRIMARY KEY (id)
-	);`
-	_, err = db.Exec(createVisits)
-	if err != nil {
-		log.Fatalf("unable to create table: %s", err)
-	}
-
-	return db
+func getHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "get from sql")
 }
 
-// func connectDB() (*gorm.DB, error) {
-// 	db, err := sql.Open("mysql", "user:password@tcp(127.0.0.1:3306)/dbname?parseTime=true&loc=Asia%2FTokyo")
-// 	if err != nil {
-// 		log.Println(err)
-// 	}
-
-// 	dsn := "root:12345678@tcp(35.229.213.42:3306)/stocks?charset=utf8mb4&parseTime=True&loc=Asia%2FTokyo"
-// 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
-// 	if err != nil {
-// 		log.Println(err)
-// 	}
-// 	return db, err
-// }
-
-func connectWithConnector() (*sql.DB, error) {
+func connectWithConnector() (*gorm.DB, error) {
 	mustGetenv := func(k string) string {
 		v := os.Getenv(k)
 		if v == "" {
@@ -178,17 +143,36 @@ func connectWithConnector() (*sql.DB, error) {
 	if usePrivate != "" {
 		opts = append(opts, cloudsqlconn.WithPrivateIP())
 	}
-	mysql.RegisterDialContext("cloudsqlconn",
+	con.RegisterDialContext("cloudsqlconn",
 		func(ctx context.Context, addr string) (net.Conn, error) {
 			return d.Dial(ctx, instanceConnectionName, opts...)
 		})
-	loc := "&loc=Asia%2FTokyo"
-	dbURI := fmt.Sprintf("%s:%s@cloudsqlconn(localhost:3306)/%s?parseTime=true%s",
-		dbUser, dbPwd, dbName, loc)
+	dbURI := fmt.Sprintf("%s:%s@cloudsqlconn(localhost:3306)/%s?parseTime=true&loc=Asia%%2FTokyo",
+		dbUser, dbPwd, dbName)
 
-	dbPool, err := sql.Open("mysql", dbURI)
-	if err != nil {
-		return nil, fmt.Errorf("sql.Open: %w", err)
-	}
-	return dbPool, nil
+	// dbPool, err := sql.Open("mysql", dbURI)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("sql.Open: %w", err)
+	// }
+	db, err := gorm.Open(my.Open(dbURI), &gorm.Config{})
+	return db, err
 }
+
+//テーブル作成クエリを実行
+func createTable(db *gorm.DB) error {
+	createTable := `CREATE TABLE IF NOT EXISTS stocks (
+		id INT NOT NULL ,
+		name VARCHAR(8) NOT NULL,
+		amount INT NOT NULL,
+		created_at datetime NOT NULL,
+		updated_at datetime NOT NULL,
+		PRIMARY KEY (id)
+	);`
+	err := db.Exec(createTable).Error
+	return err
+}
+
+//
+// func checkItem(db *sql.DB) error {
+
+// }
