@@ -2,15 +2,18 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
+	"cloud.google.com/go/cloudsqlconn"
+	"github.com/go-sql-driver/mysql"
+	//"gorm.io/driver/mysql"
 )
 
 type stock struct {
@@ -51,7 +54,7 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := connectDB()
+	_, err := connectWithConnector()
 	if err != nil {
 		http.Error(w, "Disable to connect db", http.StatusBadRequest)
 		return
@@ -102,16 +105,59 @@ func getDB() *sql.DB {
 	return db
 }
 
-func connectDB() (*gorm.DB, error) {
-	// db, err := sql.Open("mysql", "user:password@tcp(127.0.0.1:3306)/dbname?parseTime=true&loc=Asia%2FTokyo")
-	// if err != nil {
-	// 	log.Println(err)
-	// }
+// func connectDB() (*gorm.DB, error) {
+// 	db, err := sql.Open("mysql", "user:password@tcp(127.0.0.1:3306)/dbname?parseTime=true&loc=Asia%2FTokyo")
+// 	if err != nil {
+// 		log.Println(err)
+// 	}
 
-	dsn := "root:12345678@tcp(35.229.213.42:3306)/stocks?charset=utf8mb4&parseTime=True&loc=Local"
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
-	if err != nil {
-		log.Println(err)
+// 	dsn := "root:12345678@tcp(35.229.213.42:3306)/stocks?charset=utf8mb4&parseTime=True&loc=Asia%2FTokyo"
+// 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+// 	if err != nil {
+// 		log.Println(err)
+// 	}
+// 	return db, err
+// }
+
+func connectWithConnector() (*sql.DB, error) {
+	mustGetenv := func(k string) string {
+		v := os.Getenv(k)
+		if v == "" {
+			log.Fatalf("Fatal Error in connect_connector.go: %s environment variable not set.", k)
+		}
+		return v
 	}
-	return db, err
+	// Note: Saving credentials in environment variables is convenient, but not
+	// secure - consider a more secure solution such as
+	// Cloud Secret Manager (https://cloud.google.com/secret-manager) to help
+	// keep passwords and other secrets safe.
+	var (
+		dbUser                 = mustGetenv("DB_USER")                  // e.g. 'my-db-user'
+		dbPwd                  = mustGetenv("DB_PASS")                  // e.g. 'my-db-password'
+		dbName                 = mustGetenv("DB_NAME")                  // e.g. 'my-database'
+		instanceConnectionName = mustGetenv("INSTANCE_CONNECTION_NAME") // e.g. 'project:region:instance'
+		usePrivate             = os.Getenv("PRIVATE_IP")
+	)
+
+	d, err := cloudsqlconn.NewDialer(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("cloudsqlconn.NewDialer: %w", err)
+	}
+	var opts []cloudsqlconn.DialOption
+	if usePrivate != "" {
+		opts = append(opts, cloudsqlconn.WithPrivateIP())
+	}
+	mysql.RegisterDialContext("cloudsqlconn",
+		func(ctx context.Context, addr string) (net.Conn, error) {
+			return d.Dial(ctx, instanceConnectionName, opts...)
+		})
+
+	dbURI := fmt.Sprintf("%s:%s@cloudsqlconn(localhost:3306)/%s?parseTime=true",
+		dbUser, dbPwd, dbName)
+
+	dbPool, err := sql.Open("mysql", dbURI)
+	if err != nil {
+		return nil, fmt.Errorf("sql.Open: %w", err)
+	}
+	return dbPool, nil
 }
