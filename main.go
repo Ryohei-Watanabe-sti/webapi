@@ -63,7 +63,7 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	createTable := `CREATE TABLE IF NOT EXISTS stocks (
-		id INR NOT NULL ,
+		id INT NOT NULL ,
 		name VARCHAR(8) NOT NULL,
 		amount INT NOT NULL,
 		created_at datetime NOT NULL,
