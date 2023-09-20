@@ -53,6 +53,7 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 
 	_, err := connectDB()
 	if err != nil {
+		http.Error(w, "Disable to connect db", http.StatusBadRequest)
 		return
 	}
 	// リクエストボディからJSONデータを読み取り
