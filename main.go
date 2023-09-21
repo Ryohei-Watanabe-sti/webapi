@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -92,13 +93,15 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 	amount := request.Amount
 
 	oldStock, err := checkItem(db, name)
-	if err != nil {
+	if err == errors.New("record not found") {
+		log.Println("New Item arrival!")
+	} else if err != nil {
 		log.Println(err)
 		http.Error(w, "Fail to check table", http.StatusInternalServerError)
 		return
 	}
 
-	if oldStock.Id == 0 {
+	if err == errors.New("record not found") {
 		if err := insertNewItem(db, name, amount); err != nil {
 			log.Println(err)
 			http.Error(w, "Fail to insert new item", http.StatusInternalServerError)
