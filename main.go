@@ -9,7 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"strconv"
+	"time"
 
 	"cloud.google.com/go/cloudsqlconn"
 	con "github.com/go-sql-driver/mysql"
@@ -17,15 +17,20 @@ import (
 	"gorm.io/gorm"
 )
 
-type stock struct {
-	Name   string `json:"name"`
-	Amount int    `json:"amount"`
+type Stocks struct {
+	gorm.Model
+	Id         int       `json:"-" gorm:"primaryKey,autoIncrement,not null"`
+	Name       string    `json:"name" gorm:"not null"`
+	Amount     int       `json:"amount" gorm:"not null"`
+	Created_at time.Time `json:"-" gorm:"not null"`
+	Updated_at time.Time `json:"-" gorm:"not null"`
 }
 
 func main() {
 	log.Print("starting server...")
 	http.HandleFunc("/hello", helloHandler)
-	http.HandleFunc("/post", postHandler)
+	http.HandleFunc("/receipt", receiptHandler)
+	http.HandleFunc("/shipment", shipmentHandler)
 	http.HandleFunc("/get", getHandler)
 
 	// Determine port for HTTP service.
@@ -50,7 +55,7 @@ func helloHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hello %s!\n", name)
 }
 
-func postHandler(w http.ResponseWriter, r *http.Request) {
+func receiptHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -59,47 +64,51 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 	db, err := connectWithConnector()
 	if err != nil {
 		log.Println(err)
-		http.Error(w, "Disable to connect db", http.StatusBadRequest)
-		return
-	}
-
-	if err := createTable(db); err != nil {
-		log.Println(err)
-		http.Error(w, "Disable to create table", http.StatusBadRequest)
-		return
-	}
-
-	if err := createTable(db); err != nil {
-		log.Println(err)
-		http.Error(w, "Disable to create table", http.StatusBadRequest)
+		http.Error(w, "Fail to connect db", http.StatusInternalServerError)
 		return
 	}
 
 	// リクエストボディからJSONデータを読み取り
-	var request stock
+	var request Stocks
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&request); err != nil {
+		log.Println(err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
+	}
+
+	//テーブル存在チェック
+	if db.Migrator().HasTable(&Stocks{}) == false {
+		//テーブル作成クエリを実行
+		if err := db.Migrator().CreateTable(&Stocks{}).Error; err != nil {
+			log.Println(err())
+			http.Error(w, "Fail to create table", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	// JSONデータから名前を取得
 	name := request.Name
 	amount := request.Amount
 
-	insert := `INSERT INTO stocks values(
-		0,
-		"` + name + `",
-		` + strconv.Itoa(amount) + `,
-		now(),
-		now()
-	);`
-
-	err = db.Exec(insert).Error
+	oldStock, err := checkItem(db, name)
 	if err != nil {
 		log.Println(err)
-		http.Error(w, "Disable to insert data", http.StatusBadRequest)
+		http.Error(w, "Fail to check table", http.StatusInternalServerError)
 		return
+	}
+
+	if oldStock.Id == 0 {
+		if err := insertNewItem(db, name, amount); err != nil {
+			log.Println(err)
+			http.Error(w, "Fail to insert new item", http.StatusInternalServerError)
+		}
+	} else {
+		amount = amount + oldStock.Amount
+		if err := plusItem(db, oldStock, amount); err != nil {
+			log.Println(err)
+			http.Error(w, "Fail to update new item", http.StatusInternalServerError)
+		}
 	}
 
 	// レスポンスを生成
@@ -150,29 +159,34 @@ func connectWithConnector() (*gorm.DB, error) {
 	dbURI := fmt.Sprintf("%s:%s@cloudsqlconn(localhost:3306)/%s?parseTime=true&loc=Asia%%2FTokyo",
 		dbUser, dbPwd, dbName)
 
-	// dbPool, err := sql.Open("mysql", dbURI)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("sql.Open: %w", err)
-	// }
 	db, err := gorm.Open(my.Open(dbURI), &gorm.Config{})
 	return db, err
 }
 
-//テーブル作成クエリを実行
-func createTable(db *gorm.DB) error {
-	createTable := `CREATE TABLE IF NOT EXISTS stocks (
-		id INT NOT NULL ,
-		name VARCHAR(8) NOT NULL,
-		amount INT NOT NULL,
-		created_at datetime NOT NULL,
-		updated_at datetime NOT NULL,
-		PRIMARY KEY (id)
-	);`
-	err := db.Exec(createTable).Error
+//入力された商品が既に登録されていればそのIDを返す
+func checkItem(db *gorm.DB, name string) (Stocks, error) {
+	var item Stocks
+	err := db.Where("name = ?", name).First(&item).Error
+	return item, err
+}
+
+func insertNewItem(db *gorm.DB, name string, amount int) error {
+	var insertData Stocks
+	insertData.Name = name
+	insertData.Amount = amount
+	jst, _ := time.LoadLocation("Asia/Tokyo")
+	insertData.Created_at = time.Now().In(jst)
+	insertData.Updated_at = time.Now().In(jst)
+
+	err := db.Create(&insertData).Error
 	return err
 }
 
-//
-// func checkItem(db *sql.DB) error {
+func plusItem(db *gorm.DB, insertData Stocks, amount int) error {
+	err := db.Model(&insertData).Update("amount", amount).Error
+	return err
+}
 
-// }
+func shipmentHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "shipment function")
+}
