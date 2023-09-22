@@ -98,7 +98,7 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 
 	oldStock, err := checkItem(db, name)
 
-	if strings.Contains(err.Error(), "record not found") {
+	if err != nil && strings.Contains(err.Error(), "record not found") {
 		log.Println("New Item arrival!")
 	} else if err != nil {
 		log.Println(err)
@@ -122,13 +122,18 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println(1)
 
 	// レスポンスを生成
-	response := fmt.Sprintf("name: %s\namount: %d", name, amount)
+	var response Stocks
+	if err := db.Where("name = ?", name).First(&response); err != nil {
+		log.Println(err)
+	}
+
 	log.Println(1)
 
 	// レスポンスをクライアントに返す
-	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Type", "json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(response))
+	byteResp, _ := json.Marshal(response)
+	w.Write([]byte(byteResp))
 }
 
 func getHandler(w http.ResponseWriter, r *http.Request) {
