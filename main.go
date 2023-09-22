@@ -20,11 +20,11 @@ import (
 
 type Stocks struct {
 	gorm.Model
-	Id         int       `json:"-" gorm:"primaryKey,autoIncrement,not null"`
+	Id         int       `json:"id" gorm:"primaryKey,autoIncrement,not null"`
 	Name       string    `json:"name" gorm:"not null"`
 	Amount     int       `json:"amount" gorm:"not null"`
-	Created_at time.Time `json:"-" gorm:"not null"`
-	Updated_at time.Time `json:"-" gorm:"not null"`
+	Created_at time.Time `json:"created_at" gorm:"not null"`
+	Updated_at time.Time `json:"updated_at" gorm:"not null"`
 }
 
 func main() {
