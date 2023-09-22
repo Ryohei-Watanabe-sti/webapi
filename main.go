@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/cloudsqlconn"
@@ -93,7 +94,8 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 	amount := request.Amount
 
 	oldStock, err := checkItem(db, name)
-	if err == errors.New("record not found") {
+
+	if strings.Contains(err.Error(), "record not found") {
 		log.Println("New Item arrival!")
 	} else if err != nil {
 		log.Println(err)
