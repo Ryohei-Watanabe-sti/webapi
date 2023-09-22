@@ -4,12 +4,12 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/cloudsqlconn"
@@ -93,7 +93,8 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 	amount := request.Amount
 
 	oldStock, err := checkItem(db, name)
-	if err == errors.New("record not found") {
+
+	if strings.Contains(err.Error(), "record not found") {
 		log.Println("New Item arrival!")
 	} else if err != nil {
 		log.Println(err)
@@ -101,7 +102,7 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err == errors.New("record not found") {
+	if strings.Contains(err.Error(), "record not found") {
 		if err := insertNewItem(db, name, amount); err != nil {
 			log.Println(err)
 			http.Error(w, "Fail to insert new item", http.StatusInternalServerError)
