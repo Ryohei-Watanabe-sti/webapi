@@ -124,7 +124,29 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func getHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "get from sql")
+	var stocks []Stocks
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	db, err := connectWithConnector()
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "Fail to connect db", http.StatusInternalServerError)
+		return
+	}
+	result := db.Find(&stocks)
+	if result.Error != nil {
+		log.Println(err)
+		http.Error(w, "Fail to connect db", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "json")
+	w.WriteHeader(http.StatusOK)
+	response, _ := json.Marshal(stocks)
+	w.Write(response)
 }
 
 func connectWithConnector() (*gorm.DB, error) {
