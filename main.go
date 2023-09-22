@@ -61,6 +61,7 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	log.Println(1)
 
 	db, err := connectWithConnector()
 	if err != nil {
@@ -68,6 +69,7 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Fail to connect db", http.StatusInternalServerError)
 		return
 	}
+	log.Println(1)
 
 	// リクエストボディからJSONデータを読み取り
 	var request Stocks
@@ -77,6 +79,7 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
+	log.Println(1)
 
 	//テーブル存在チェック
 	if db.Migrator().HasTable(&Stocks{}) == false {
@@ -87,6 +90,7 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	log.Println(1)
 
 	// JSONデータから名前を取得
 	name := request.Name
@@ -101,6 +105,7 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Fail to check table", http.StatusInternalServerError)
 		return
 	}
+	log.Println(1)
 
 	if strings.Contains(err.Error(), "record not found") {
 		if err := insertNewItem(db, name, amount); err != nil {
@@ -114,9 +119,11 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Fail to update new item", http.StatusInternalServerError)
 		}
 	}
+	log.Println(1)
 
 	// レスポンスを生成
 	response := fmt.Sprintf("name: %s\namount: %d", name, amount)
+	log.Println(1)
 
 	// レスポンスをクライアントに返す
 	w.Header().Set("Content-Type", "text/plain")
