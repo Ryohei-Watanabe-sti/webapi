@@ -27,6 +27,14 @@ type Stocks struct {
 	Updated_at time.Time `json:"updated_at" gorm:"not null"`
 }
 
+type StocksResponse struct {
+	Id         int       `json:"id"`
+	Name       string    `json:"name"`
+	Amount     int       `json:"amount"`
+	Created_at time.Time `json:"created_at"`
+	Updated_at time.Time `json:"updated_at"`
+}
+
 func main() {
 	log.Print("starting server...")
 	http.HandleFunc("/hello", helloHandler)
@@ -121,7 +129,7 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// レスポンスを生成
-	var response Stocks
+	var response StocksResponse
 	if err := db.Where("name = ?", name).First(&response).Error; err != nil {
 		log.Println(err)
 	}
@@ -134,7 +142,7 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func getHandler(w http.ResponseWriter, r *http.Request) {
-	var stocks []Stocks
+	var stocks []StocksResponse
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -153,7 +161,6 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println(stocks)
 	w.Header().Set("Content-Type", "json")
 	w.WriteHeader(http.StatusOK)
 	response, _ := json.Marshal(stocks)
