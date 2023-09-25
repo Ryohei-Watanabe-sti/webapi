@@ -28,11 +28,11 @@ type Stocks struct {
 }
 
 type StocksResponse struct {
-	Id         int       `json:"id"`
-	Name       string    `json:"name"`
-	Amount     int       `json:"amount"`
-	Created_at time.Time `json:"created_at"`
-	Updated_at time.Time `json:"updated_at"`
+	Id         int       `json:"id" gorm:"column:id"`
+	Name       string    `json:"name" gorm:"column:name"`
+	Amount     int       `json:"amount" gorm:"column:amount"`
+	Created_at time.Time `json:"created_at" gorm:"column:created_at"`
+	Updated_at time.Time `json:"updated_at" gorm:"column:updated_at"`
 }
 
 func main() {
@@ -130,6 +130,83 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 
 	// レスポンスを生成
 	var response StocksResponse
+	if err := db.Table("stocks").Where("name = ?", name).Scan(&response).Error; err != nil {
+		log.Println(err)
+	}
+
+	// レスポンスをクライアントに返す
+	w.Header().Set("Content-Type", "json")
+	w.WriteHeader(http.StatusOK)
+	byteResp, _ := json.Marshal(response)
+	w.Write(byteResp)
+}
+
+func shipmentHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	db, err := connectWithConnector()
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "Fail to connect db", http.StatusInternalServerError)
+		return
+	}
+
+	sqlDB, _ := db.DB()
+	defer sqlDB.Close()
+	tx := db.Begin()
+	defer tx.Commit()
+
+	// リクエストボディからJSONデータを読み取り
+	var request Stocks
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&request); err != nil {
+		log.Println(err)
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	//テーブル存在チェック
+	if db.Migrator().HasTable(&Stocks{}) == false {
+		//テーブル作成クエリを実行
+		if err := db.Migrator().CreateTable(&Stocks{}).Error; err != nil {
+			log.Println(err())
+			http.Error(w, "Fail to create table", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// JSONデータから名前を取得
+	name := request.Name
+	amount := request.Amount
+
+	oldStock, err := checkItem(db, name)
+
+	if err != nil && strings.Contains(err.Error(), "record not found") {
+		log.Println("New Item arrival!")
+	} else if err != nil {
+		log.Println(err)
+		http.Error(w, "Fail to check table", http.StatusInternalServerError)
+		return
+	}
+
+	if err != nil && strings.Contains(err.Error(), "record not found") {
+		if err := insertNewItem(db, name, amount); err != nil {
+			log.Println(err)
+			http.Error(w, "Fail to insert new item", http.StatusInternalServerError)
+		}
+	} else {
+		amount = amount + oldStock.Amount
+		if err := plusItem(db, oldStock, amount); err != nil {
+			log.Println(err)
+			http.Error(w, "Fail to update new item", http.StatusInternalServerError)
+		}
+	}
+
+	// レスポンスを生成
+	var response StocksResponse
 	if err := db.Where("name = ?", name).First(&response).Error; err != nil {
 		log.Println(err)
 	}
@@ -154,7 +231,7 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Fail to connect db", http.StatusInternalServerError)
 		return
 	}
-	result := db.Find(&stocks)
+	result := db.Table("stocks").Find(&stocks)
 	if result.Error != nil {
 		log.Println(err)
 		http.Error(w, "Fail to connect db", http.StatusInternalServerError)
@@ -228,8 +305,4 @@ func insertNewItem(db *gorm.DB, name string, amount int) error {
 func plusItem(db *gorm.DB, insertData Stocks, amount int) error {
 	err := db.Model(&insertData).Update("amount", amount).Error
 	return err
-}
-
-func shipmentHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "shipment function")
 }
