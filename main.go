@@ -61,7 +61,6 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	log.Println(1)
 
 	db, err := connectWithConnector()
 	if err != nil {
@@ -69,14 +68,11 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Fail to connect db", http.StatusInternalServerError)
 		return
 	}
-	log.Println(1)
 
 	sqlDB, _ := db.DB()
 	defer sqlDB.Close()
 	tx := db.Begin()
 	defer tx.Commit()
-
-	log.Println(1)
 
 	// リクエストボディからJSONデータを読み取り
 	var request Stocks
@@ -86,7 +82,6 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
-	log.Println(1)
 
 	//テーブル存在チェック
 	if db.Migrator().HasTable(&Stocks{}) == false {
@@ -97,7 +92,6 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	log.Println(1)
 
 	// JSONデータから名前を取得
 	name := request.Name
@@ -112,7 +106,6 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Fail to check table", http.StatusInternalServerError)
 		return
 	}
-	log.Println(1)
 
 	if err != nil && strings.Contains(err.Error(), "record not found") {
 		if err := insertNewItem(db, name, amount); err != nil {
@@ -126,7 +119,6 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Fail to update new item", http.StatusInternalServerError)
 		}
 	}
-	log.Println(1)
 
 	// レスポンスを生成
 	var response Stocks
@@ -134,13 +126,11 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 
-	log.Println(1)
-
 	// レスポンスをクライアントに返す
 	w.Header().Set("Content-Type", "json")
 	w.WriteHeader(http.StatusOK)
 	byteResp, _ := json.Marshal(response)
-	w.Write([]byte(byteResp))
+	w.Write(byteResp)
 }
 
 func getHandler(w http.ResponseWriter, r *http.Request) {
