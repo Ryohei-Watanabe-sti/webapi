@@ -114,7 +114,7 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Println(1)
 
-	if strings.Contains(err.Error(), "record not found") {
+	if err != nil && strings.Contains(err.Error(), "record not found") {
 		if err := insertNewItem(db, name, amount); err != nil {
 			log.Println(err)
 			http.Error(w, "Fail to insert new item", http.StatusInternalServerError)
