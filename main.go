@@ -311,5 +311,11 @@ func insertNewItem(db *gorm.DB, name string, amount int) error {
 
 func updateItem(db *gorm.DB, insertData Stocks, amount int) error {
 	err := db.Model(&insertData).Update("amount", amount).Error
+	if err != nil {
+		jst, _ := time.LoadLocation("Asia/Tokyo")
+		now := time.Now().In(jst)
+		db.Model(&insertData).Update("updated_at", now)
+	}
+
 	return err
 }
