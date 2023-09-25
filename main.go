@@ -71,6 +71,13 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Println(1)
 
+	sqlDB, _ := db.DB()
+	defer sqlDB.Close()
+	tx := db.Begin()
+	defer tx.Commit()
+
+	log.Println(1)
+
 	// リクエストボディからJSONデータを読み取り
 	var request Stocks
 	decoder := json.NewDecoder(r.Body)
