@@ -122,7 +122,7 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 
 	// レスポンスを生成
 	var response Stocks
-	if err := db.Where("name = ?", name).First(&response); err != nil {
+	if err := db.Where("name = ?", name).First(&response).Error; err != nil {
 		log.Println(err)
 	}
 
@@ -153,6 +153,7 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Println(stocks)
 	w.Header().Set("Content-Type", "json")
 	w.WriteHeader(http.StatusOK)
 	response, _ := json.Marshal(stocks)
