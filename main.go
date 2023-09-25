@@ -90,6 +90,10 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
+	if request.Amount <= 0 {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
 
 	//テーブル存在チェック
 	if db.Migrator().HasTable(&Stocks{}) == false {
@@ -122,7 +126,7 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		amount = amount + oldStock.Amount
-		if err := plusItem(db, oldStock, amount); err != nil {
+		if err := updateItem(db, oldStock, amount); err != nil {
 			log.Println(err)
 			http.Error(w, "Fail to update new item", http.StatusInternalServerError)
 		}
@@ -167,6 +171,10 @@ func shipmentHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
+	if request.Amount <= 0 {
+		http.Error(w, "Invalid Amount", http.StatusBadRequest)
+		return
+	}
 
 	//テーブル存在チェック
 	if db.Migrator().HasTable(&Stocks{}) == false {
@@ -185,29 +193,28 @@ func shipmentHandler(w http.ResponseWriter, r *http.Request) {
 	oldStock, err := checkItem(db, name)
 
 	if err != nil && strings.Contains(err.Error(), "record not found") {
-		log.Println("New Item arrival!")
+		log.Println(err)
+		http.Error(w, "Invalid Item", http.StatusBadRequest)
+		return
 	} else if err != nil {
 		log.Println(err)
 		http.Error(w, "Fail to check table", http.StatusInternalServerError)
 		return
 	}
 
-	if err != nil && strings.Contains(err.Error(), "record not found") {
-		if err := insertNewItem(db, name, amount); err != nil {
-			log.Println(err)
-			http.Error(w, "Fail to insert new item", http.StatusInternalServerError)
-		}
-	} else {
-		amount = amount + oldStock.Amount
-		if err := plusItem(db, oldStock, amount); err != nil {
-			log.Println(err)
-			http.Error(w, "Fail to update new item", http.StatusInternalServerError)
-		}
+	amount = oldStock.Amount - amount
+	if amount < 0 {
+		http.Error(w, "Invalid Amount", http.StatusBadRequest)
+		return
+	}
+	if err := updateItem(db, oldStock, amount); err != nil {
+		log.Println(err)
+		http.Error(w, "Fail to update new item", http.StatusInternalServerError)
 	}
 
 	// レスポンスを生成
 	var response StocksResponse
-	if err := db.Where("name = ?", name).First(&response).Error; err != nil {
+	if err := db.Table("stocks").Where("name = ?", name).Scan(&response).Error; err != nil {
 		log.Println(err)
 	}
 
@@ -302,7 +309,7 @@ func insertNewItem(db *gorm.DB, name string, amount int) error {
 	return err
 }
 
-func plusItem(db *gorm.DB, insertData Stocks, amount int) error {
+func updateItem(db *gorm.DB, insertData Stocks, amount int) error {
 	err := db.Model(&insertData).Update("amount", amount).Error
 	return err
 }
