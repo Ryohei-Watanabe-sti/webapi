@@ -319,3 +319,5 @@ func updateItem(db *gorm.DB, insertData Stocks, amount int) error {
 
 	return err
 }
+
+//pushtest
