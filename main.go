@@ -2,15 +2,19 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
-	my "gorm.io/driver/mysql"
+	"cloud.google.com/go/cloudsqlconn"
+	sqlcon "github.com/go-sql-driver/mysql"
+	gormcon "gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
@@ -256,25 +260,25 @@ func connectWithConnector() (*gorm.DB, error) {
 		return v
 	}
 
-	dbUser := mustGetenv("DB_USER") // e.g. 'my-db-user'
-	dbPwd := mustGetenv("DB_PASS")  // e.g. 'my-db-password'
-	dbName := mustGetenv("DB_NAME") // e.g. 'my-database'
-	// instanceConnectionName := mustGetenv("INSTANCE_CONNECTION_NAME") // e.g. 'project:region:instance'
+	dbUser := mustGetenv("DB_USER")                                  // e.g. 'my-db-user'
+	dbPwd := mustGetenv("DB_PASS")                                   // e.g. 'my-db-password'
+	dbName := mustGetenv("DB_NAME")                                  // e.g. 'my-database'
+	instanceConnectionName := mustGetenv("INSTANCE_CONNECTION_NAME") // e.g. 'project:region:instance'
 
-	// d, err := cloudsqlconn.NewDialer(context.Background())
-	// if err != nil {
-	// 	return nil, fmt.Errorf("cloudsqlconn.NewDialer: %w", err)
-	// }
-	// var opts []cloudsqlconn.DialOption
+	d, err := cloudsqlconn.NewDialer(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("cloudsqlconn.NewDialer: %w", err)
+	}
+	var opts []cloudsqlconn.DialOption
 
-	// con.RegisterDialContext("cloudsqlconn",
-	// 	func(ctx context.Context, addr string) (net.Conn, error) {
-	// 		return d.Dial(ctx, instanceConnectionName, opts...)
-	// 	})
+	sqlcon.RegisterDialContext("cloudsqlconn",
+		func(ctx context.Context, addr string) (net.Conn, error) {
+			return d.Dial(ctx, instanceConnectionName, opts...)
+		})
 	dbURI := fmt.Sprintf("%s:%s@cloudsqlconn(localhost:3306)/%s?parseTime=true&loc=Asia%%2FTokyo",
 		dbUser, dbPwd, dbName)
 
-	db, err := gorm.Open(my.Open(dbURI), &gorm.Config{})
+	db, err := gorm.Open(gormcon.Open(dbURI), &gorm.Config{})
 	return db, err
 }
 
@@ -307,5 +311,3 @@ func updateItem(db *gorm.DB, insertData Stocks, amount int) error {
 
 	return err
 }
-
-//pushtest
