@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"cloud.google.com/go/cloudsqlconn"
-	con "github.com/go-sql-driver/mysql"
-	my "gorm.io/driver/mysql"
+	sqlcon "github.com/go-sql-driver/mysql"
+	gormcon "gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
@@ -25,6 +25,14 @@ type Stocks struct {
 	Amount     int       `json:"amount" gorm:"not null"`
 	Created_at time.Time `json:"created_at" gorm:"not null"`
 	Updated_at time.Time `json:"updated_at" gorm:"not null"`
+}
+
+type StocksResponse struct {
+	Id         int       `json:"id" gorm:"column:id"`
+	Name       string    `json:"name" gorm:"column:name"`
+	Amount     int       `json:"amount" gorm:"column:amount"`
+	Created_at time.Time `json:"created_at" gorm:"column:created_at"`
+	Updated_at time.Time `json:"updated_at" gorm:"column:updated_at"`
 }
 
 func main() {
@@ -61,7 +69,6 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	log.Println(1)
 
 	db, err := connectWithConnector()
 	if err != nil {
@@ -69,7 +76,11 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Fail to connect db", http.StatusInternalServerError)
 		return
 	}
-	log.Println(1)
+
+	sqlDB, _ := db.DB()
+	defer sqlDB.Close()
+	tx := db.Begin()
+	defer tx.Commit()
 
 	// リクエストボディからJSONデータを読み取り
 	var request Stocks
@@ -79,7 +90,10 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
-	log.Println(1)
+	if request.Amount <= 0 {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
 
 	//テーブル存在チェック
 	if db.Migrator().HasTable(&Stocks{}) == false {
@@ -90,7 +104,6 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	log.Println(1)
 
 	// JSONデータから名前を取得
 	name := request.Name
@@ -98,41 +111,122 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 
 	oldStock, err := checkItem(db, name)
 
-	if strings.Contains(err.Error(), "record not found") {
+	if err != nil && strings.Contains(err.Error(), "record not found") {
 		log.Println("New Item arrival!")
 	} else if err != nil {
 		log.Println(err)
 		http.Error(w, "Fail to check table", http.StatusInternalServerError)
 		return
 	}
-	log.Println(1)
 
-	if strings.Contains(err.Error(), "record not found") {
+	if err != nil && strings.Contains(err.Error(), "record not found") {
 		if err := insertNewItem(db, name, amount); err != nil {
 			log.Println(err)
 			http.Error(w, "Fail to insert new item", http.StatusInternalServerError)
 		}
 	} else {
 		amount = amount + oldStock.Amount
-		if err := plusItem(db, oldStock, amount); err != nil {
+		if err := updateItem(db, oldStock.Id, amount); err != nil {
 			log.Println(err)
 			http.Error(w, "Fail to update new item", http.StatusInternalServerError)
 		}
 	}
-	log.Println(1)
 
 	// レスポンスを生成
-	response := fmt.Sprintf("name: %s\namount: %d", name, amount)
-	log.Println(1)
+	var response StocksResponse
+	if err := db.Table("stocks").Where("name = ?", name).Scan(&response).Error; err != nil {
+		log.Println(err)
+	}
 
 	// レスポンスをクライアントに返す
-	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Type", "json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(response))
+	byteResp, _ := json.Marshal(response)
+	w.Write(byteResp)
+}
+
+func shipmentHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	db, err := connectWithConnector()
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "Fail to connect db", http.StatusInternalServerError)
+		return
+	}
+
+	sqlDB, _ := db.DB()
+	defer sqlDB.Close()
+	tx := db.Begin()
+	defer tx.Commit()
+
+	// リクエストボディからJSONデータを読み取り
+	var request Stocks
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&request); err != nil {
+		log.Println(err)
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+	if request.Amount <= 0 {
+		http.Error(w, "Invalid Amount", http.StatusBadRequest)
+		return
+	}
+
+	//テーブル存在チェック
+	if db.Migrator().HasTable(&Stocks{}) == false {
+		//テーブル作成クエリを実行
+		if err := db.Migrator().CreateTable(&Stocks{}).Error; err != nil {
+			log.Println(err())
+			http.Error(w, "Fail to create table", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// JSONデータから名前を取得
+	name := request.Name
+	amount := request.Amount
+
+	oldStock, err := checkItem(db, name)
+
+	if err != nil && strings.Contains(err.Error(), "record not found") {
+		log.Println(err)
+		http.Error(w, "Invalid Item", http.StatusBadRequest)
+		return
+	} else if err != nil {
+		log.Println(err)
+		http.Error(w, "Fail to check table", http.StatusInternalServerError)
+		return
+	}
+
+	amount = oldStock.Amount - amount
+	if amount < 0 {
+		http.Error(w, "Invalid Amount", http.StatusBadRequest)
+		return
+	}
+	if err := updateItem(db, oldStock.Id, amount); err != nil {
+		log.Println(err)
+		http.Error(w, "Fail to update new item", http.StatusInternalServerError)
+	}
+
+	// レスポンスを生成
+	var response StocksResponse
+	if err := db.Table("stocks").Where("name = ?", name).Scan(&response).Error; err != nil {
+		log.Println(err)
+	}
+
+	// レスポンスをクライアントに返す
+	w.Header().Set("Content-Type", "json")
+	w.WriteHeader(http.StatusOK)
+	byteResp, _ := json.Marshal(response)
+	w.Write(byteResp)
 }
 
 func getHandler(w http.ResponseWriter, r *http.Request) {
-	var stocks []Stocks
+	var stocks []StocksResponse
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -144,7 +238,7 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Fail to connect db", http.StatusInternalServerError)
 		return
 	}
-	result := db.Find(&stocks)
+	result := db.Table("stocks").Find(&stocks)
 	if result.Error != nil {
 		log.Println(err)
 		http.Error(w, "Fail to connect db", http.StatusInternalServerError)
@@ -165,34 +259,26 @@ func connectWithConnector() (*gorm.DB, error) {
 		}
 		return v
 	}
-	// Note: Saving credentials in environment variables is convenient, but not
-	// secure - consider a more secure solution such as
-	// Cloud Secret Manager (https://cloud.google.com/secret-manager) to help
-	// keep passwords and other secrets safe.
-	var (
-		dbUser                 = mustGetenv("DB_USER")                  // e.g. 'my-db-user'
-		dbPwd                  = mustGetenv("DB_PASS")                  // e.g. 'my-db-password'
-		dbName                 = mustGetenv("DB_NAME")                  // e.g. 'my-database'
-		instanceConnectionName = mustGetenv("INSTANCE_CONNECTION_NAME") // e.g. 'project:region:instance'
-		usePrivate             = os.Getenv("PRIVATE_IP")
-	)
+
+	dbUser := mustGetenv("DB_USER")                                  // e.g. 'my-db-user'
+	dbPwd := mustGetenv("DB_PASS")                                   // e.g. 'my-db-password'
+	dbName := mustGetenv("DB_NAME")                                  // e.g. 'my-database'
+	instanceConnectionName := mustGetenv("INSTANCE_CONNECTION_NAME") // e.g. 'project:region:instance'
 
 	d, err := cloudsqlconn.NewDialer(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("cloudsqlconn.NewDialer: %w", err)
 	}
 	var opts []cloudsqlconn.DialOption
-	if usePrivate != "" {
-		opts = append(opts, cloudsqlconn.WithPrivateIP())
-	}
-	con.RegisterDialContext("cloudsqlconn",
+
+	sqlcon.RegisterDialContext("cloudsqlconn",
 		func(ctx context.Context, addr string) (net.Conn, error) {
 			return d.Dial(ctx, instanceConnectionName, opts...)
 		})
 	dbURI := fmt.Sprintf("%s:%s@cloudsqlconn(localhost:3306)/%s?parseTime=true&loc=Asia%%2FTokyo",
 		dbUser, dbPwd, dbName)
 
-	db, err := gorm.Open(my.Open(dbURI), &gorm.Config{})
+	db, err := gorm.Open(gormcon.Open(dbURI), &gorm.Config{})
 	return db, err
 }
 
@@ -215,11 +301,9 @@ func insertNewItem(db *gorm.DB, name string, amount int) error {
 	return err
 }
 
-func plusItem(db *gorm.DB, insertData Stocks, amount int) error {
-	err := db.Model(&insertData).Update("amount", amount).Error
+func updateItem(db *gorm.DB, id int, amount int) error {
+	jst, _ := time.LoadLocation("Asia/Tokyo")
+	now := time.Now().In(jst)
+	err := db.Model(Stocks{}).Where("id = ?", id).Updates(Stocks{Amount: amount, Updated_at: now}).Error
 	return err
-}
-
-func shipmentHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "shipment function")
 }
