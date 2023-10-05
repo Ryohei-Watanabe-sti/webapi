@@ -126,7 +126,7 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		amount = amount + oldStock.Amount
-		if err := updateItem(db, oldStock, amount); err != nil {
+		if err := updateItem(db, oldStock.Id, amount); err != nil {
 			log.Println(err)
 			http.Error(w, "Fail to update new item", http.StatusInternalServerError)
 		}
@@ -207,7 +207,7 @@ func shipmentHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid Amount", http.StatusBadRequest)
 		return
 	}
-	if err := updateItem(db, oldStock, amount); err != nil {
+	if err := updateItem(db, oldStock.Id, amount); err != nil {
 		log.Println(err)
 		http.Error(w, "Fail to update new item", http.StatusInternalServerError)
 	}
@@ -301,13 +301,9 @@ func insertNewItem(db *gorm.DB, name string, amount int) error {
 	return err
 }
 
-func updateItem(db *gorm.DB, insertData Stocks, amount int) error {
-	err := db.Model(&insertData).Update("amount", amount).Error
-	if err != nil {
-		jst, _ := time.LoadLocation("Asia/Tokyo")
-		now := time.Now().In(jst)
-		err = db.Model(&insertData).Update("updated_at", now).Error
-	}
-
+func updateItem(db *gorm.DB, id int, amount int) error {
+	jst, _ := time.LoadLocation("Asia/Tokyo")
+	now := time.Now().In(jst)
+	err := db.Model(Stocks{}).Where("id = ?", id).Updates(Stocks{Amount: amount, Updated_at: now}).Error
 	return err
 }
