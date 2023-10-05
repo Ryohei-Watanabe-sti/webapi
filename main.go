@@ -306,7 +306,7 @@ func updateItem(db *gorm.DB, insertData Stocks, amount int) error {
 	if err != nil {
 		jst, _ := time.LoadLocation("Asia/Tokyo")
 		now := time.Now().In(jst)
-		db.Model(&insertData).Update("updated_at", now)
+		err = db.Model(&insertData).Update("updated_at", now).Error
 	}
 
 	return err
