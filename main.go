@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"cloud.google.com/go/cloudsqlconn"
@@ -112,20 +111,16 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 
 	oldStock, err := checkItem(db, name)
 
-	// if err != nil && strings.Contains(err.Error(), "record not found") {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		log.Println("New Item arrival!")
-	} else if err != nil {
-		log.Println(err)
-		http.Error(w, "function checkItem: Fail to check table", http.StatusInternalServerError)
-		return
-	}
-
-	if err != nil && strings.Contains(err.Error(), "record not found") {
 		if err := insertNewItem(db, name, amount); err != nil {
 			log.Println(err)
 			http.Error(w, "function insertNewItem: Fail to insert new item", http.StatusInternalServerError)
 		}
+	} else if err != nil {
+		log.Println(err)
+		http.Error(w, "function checkItem: Fail to check table", http.StatusInternalServerError)
+		return
 	} else {
 		amount = amount + oldStock.Amount
 		if err := updateItem(db, oldStock.Id, amount); err != nil {
@@ -194,7 +189,7 @@ func shipmentHandler(w http.ResponseWriter, r *http.Request) {
 
 	oldStock, err := checkItem(db, name)
 
-	if err != nil && strings.Contains(err.Error(), "record not found") {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		log.Println(err)
 		http.Error(w, "function shipmentHandler: Invalid Item", http.StatusBadRequest)
 		return
