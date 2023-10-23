@@ -18,7 +18,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type Stocks struct {
+type Stock struct {
 	gorm.Model
 	Id         int       `json:"id" gorm:"primaryKey,autoIncrement,not null"`
 	Name       string    `json:"name" gorm:"not null"`
@@ -83,7 +83,7 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 	defer tx.Commit()
 
 	// リクエストボディからJSONデータを読み取り
-	var request Stocks
+	var request Stock
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&request); err != nil {
 		log.Println(err)
@@ -96,9 +96,9 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//テーブル存在チェック
-	if db.Migrator().HasTable(&Stocks{}) == false {
+	if db.Migrator().HasTable(&Stock{}) == false {
 		//テーブル作成クエリを実行
-		if err := db.Migrator().CreateTable(&Stocks{}).Error; err != nil {
+		if err := db.Migrator().CreateTable(&Stock{}).Error; err != nil {
 			log.Println(err())
 			http.Error(w, "Fail to create table", http.StatusInternalServerError)
 			return
@@ -164,7 +164,7 @@ func shipmentHandler(w http.ResponseWriter, r *http.Request) {
 	defer tx.Commit()
 
 	// リクエストボディからJSONデータを読み取り
-	var request Stocks
+	var request Stock
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&request); err != nil {
 		log.Println(err)
@@ -177,9 +177,9 @@ func shipmentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//テーブル存在チェック
-	if db.Migrator().HasTable(&Stocks{}) == false {
+	if db.Migrator().HasTable(&Stock{}) == false {
 		//テーブル作成クエリを実行
-		if err := db.Migrator().CreateTable(&Stocks{}).Error; err != nil {
+		if err := db.Migrator().CreateTable(&Stock{}).Error; err != nil {
 			log.Println(err())
 			http.Error(w, "Fail to create table", http.StatusInternalServerError)
 			return
@@ -282,15 +282,15 @@ func connectWithConnector() (*gorm.DB, error) {
 	return db, err
 }
 
-//入力された商品が既に登録されていればそのIDを返す
-func checkItem(db *gorm.DB, name string) (Stocks, error) {
-	var item Stocks
+// 入力された商品が既に登録されていればそのIDを返す
+func checkItem(db *gorm.DB, name string) (Stock, error) {
+	var item Stock
 	err := db.Where("name = ?", name).First(&item).Error
 	return item, err
 }
 
 func insertNewItem(db *gorm.DB, name string, amount int) error {
-	var insertData Stocks
+	var insertData Stock
 	insertData.Name = name
 	insertData.Amount = amount
 	jst, _ := time.LoadLocation("Asia/Tokyo")
@@ -304,6 +304,6 @@ func insertNewItem(db *gorm.DB, name string, amount int) error {
 func updateItem(db *gorm.DB, id int, amount int) error {
 	jst, _ := time.LoadLocation("Asia/Tokyo")
 	now := time.Now().In(jst)
-	err := db.Model(Stocks{}).Where("id = ?", id).Updates(Stocks{Amount: amount, Updated_at: now}).Error
+	err := db.Model(Stock{}).Where("id = ?", id).Updates(Stock{Amount: amount, Updated_at: now}).Error
 	return err
 }
