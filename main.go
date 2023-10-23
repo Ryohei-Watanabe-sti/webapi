@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -111,7 +112,8 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 
 	oldStock, err := checkItem(db, name)
 
-	if err != nil && strings.Contains(err.Error(), "record not found") {
+	// if err != nil && strings.Contains(err.Error(), "record not found") {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		log.Println("New Item arrival!")
 	} else if err != nil {
 		log.Println(err)
