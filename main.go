@@ -66,14 +66,14 @@ func helloHandler(w http.ResponseWriter, r *http.Request) {
 
 func receiptHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, "function receiptHandler: Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	db, err := connectWithConnector()
 	if err != nil {
 		log.Println(err)
-		http.Error(w, "Fail to connect db", http.StatusInternalServerError)
+		http.Error(w, "function connectWithConnector: Fail to connect db", http.StatusInternalServerError)
 		return
 	}
 
@@ -87,11 +87,11 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&request); err != nil {
 		log.Println(err)
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		http.Error(w, "function receiptHandler: Invalid JSON", http.StatusBadRequest)
 		return
 	}
 	if request.Amount <= 0 {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		http.Error(w, "function receiptHandler: Invalid Amount", http.StatusBadRequest)
 		return
 	}
 
@@ -100,7 +100,7 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 		//テーブル作成クエリを実行
 		if err := db.Migrator().CreateTable(&Stock{}).Error; err != nil {
 			log.Println(err())
-			http.Error(w, "Fail to create table", http.StatusInternalServerError)
+			http.Error(w, "function receiptHandler: Fail to create table", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -115,20 +115,20 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println("New Item arrival!")
 	} else if err != nil {
 		log.Println(err)
-		http.Error(w, "Fail to check table", http.StatusInternalServerError)
+		http.Error(w, "function checkItem: Fail to check table", http.StatusInternalServerError)
 		return
 	}
 
 	if err != nil && strings.Contains(err.Error(), "record not found") {
 		if err := insertNewItem(db, name, amount); err != nil {
 			log.Println(err)
-			http.Error(w, "Fail to insert new item", http.StatusInternalServerError)
+			http.Error(w, "function insertNewItem: Fail to insert new item", http.StatusInternalServerError)
 		}
 	} else {
 		amount = amount + oldStock.Amount
 		if err := updateItem(db, oldStock.Id, amount); err != nil {
 			log.Println(err)
-			http.Error(w, "Fail to update new item", http.StatusInternalServerError)
+			http.Error(w, "function updateItem: Fail to update new item", http.StatusInternalServerError)
 		}
 	}
 
@@ -147,14 +147,14 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 
 func shipmentHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, "function shipmentHandler: Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	db, err := connectWithConnector()
 	if err != nil {
 		log.Println(err)
-		http.Error(w, "Fail to connect db", http.StatusInternalServerError)
+		http.Error(w, "function connectWithConnector: Fail to connect db", http.StatusInternalServerError)
 		return
 	}
 
@@ -168,7 +168,7 @@ func shipmentHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&request); err != nil {
 		log.Println(err)
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		http.Error(w, "json decorder: Invalid JSON", http.StatusBadRequest)
 		return
 	}
 	if request.Amount <= 0 {
@@ -181,7 +181,7 @@ func shipmentHandler(w http.ResponseWriter, r *http.Request) {
 		//テーブル作成クエリを実行
 		if err := db.Migrator().CreateTable(&Stock{}).Error; err != nil {
 			log.Println(err())
-			http.Error(w, "Fail to create table", http.StatusInternalServerError)
+			http.Error(w, "function shipmentHandler: Fail to create table", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -194,11 +194,11 @@ func shipmentHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil && strings.Contains(err.Error(), "record not found") {
 		log.Println(err)
-		http.Error(w, "Invalid Item", http.StatusBadRequest)
+		http.Error(w, "function shipmentHandler: Invalid Item", http.StatusBadRequest)
 		return
 	} else if err != nil {
 		log.Println(err)
-		http.Error(w, "Fail to check table", http.StatusInternalServerError)
+		http.Error(w, "function checkItem: Fail to check table", http.StatusInternalServerError)
 		return
 	}
 
@@ -209,7 +209,7 @@ func shipmentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := updateItem(db, oldStock.Id, amount); err != nil {
 		log.Println(err)
-		http.Error(w, "Fail to update new item", http.StatusInternalServerError)
+		http.Error(w, "function updateItem: Fail to update new item", http.StatusInternalServerError)
 	}
 
 	// レスポンスを生成
@@ -228,20 +228,20 @@ func shipmentHandler(w http.ResponseWriter, r *http.Request) {
 func getHandler(w http.ResponseWriter, r *http.Request) {
 	var stocks []StockResponse
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, "function getHandler: Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	db, err := connectWithConnector()
 	if err != nil {
 		log.Println(err)
-		http.Error(w, "Fail to connect db", http.StatusInternalServerError)
+		http.Error(w, "function connectWithConnector: Fail to connect db", http.StatusInternalServerError)
 		return
 	}
 	result := db.Table("stocks").Find(&stocks)
 	if result.Error != nil {
 		log.Println(err)
-		http.Error(w, "Fail to connect db", http.StatusInternalServerError)
+		http.Error(w, "function getHandler: Fail to get records", http.StatusInternalServerError)
 		return
 	}
 
@@ -282,7 +282,7 @@ func connectWithConnector() (*gorm.DB, error) {
 	return db, err
 }
 
-// 入力された商品が既に登録されていればそのIDを返す
+// 入力された商品が既に登録されていればそのレコードを返す
 func checkItem(db *gorm.DB, name string) (Stock, error) {
 	var item Stock
 	err := db.Where("name = ?", name).First(&item).Error
