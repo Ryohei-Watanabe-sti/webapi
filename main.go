@@ -27,7 +27,7 @@ type Stock struct {
 	Updated_at time.Time `json:"updated_at" gorm:"not null"`
 }
 
-type StocksResponse struct {
+type StockResponse struct {
 	Id         int       `json:"id" gorm:"column:id"`
 	Name       string    `json:"name" gorm:"column:name"`
 	Amount     int       `json:"amount" gorm:"column:amount"`
@@ -133,7 +133,7 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// レスポンスを生成
-	var response StocksResponse
+	var response StockResponse
 	if err := db.Table("stocks").Where("name = ?", name).Scan(&response).Error; err != nil {
 		log.Println(err)
 	}
@@ -213,7 +213,7 @@ func shipmentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// レスポンスを生成
-	var response StocksResponse
+	var response StockResponse
 	if err := db.Table("stocks").Where("name = ?", name).Scan(&response).Error; err != nil {
 		log.Println(err)
 	}
@@ -226,7 +226,7 @@ func shipmentHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func getHandler(w http.ResponseWriter, r *http.Request) {
-	var stocks []StocksResponse
+	var stocks []StockResponse
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
