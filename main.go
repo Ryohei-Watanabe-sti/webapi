@@ -96,13 +96,10 @@ func receiptHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//テーブル存在チェック
-	if db.Migrator().HasTable(&Stock{}) == false {
-		//テーブル作成クエリを実行
-		if err := db.Migrator().CreateTable(&Stock{}).Error; err != nil {
-			log.Println(err())
-			http.Error(w, "function receiptHandler: Fail to create table", http.StatusInternalServerError)
-			return
-		}
+	if err := checkTable(db); err != nil {
+		log.Println(err)
+		http.Error(w, "function receiptHandler: Fail to create table", http.StatusInternalServerError)
+		return
 	}
 
 	// JSONデータから名前を取得
@@ -174,13 +171,10 @@ func shipmentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//テーブル存在チェック
-	if db.Migrator().HasTable(&Stock{}) == false {
-		//テーブル作成クエリを実行
-		if err := db.Migrator().CreateTable(&Stock{}).Error; err != nil {
-			log.Println(err())
-			http.Error(w, "function shipmentHandler: Fail to create table", http.StatusInternalServerError)
-			return
-		}
+	if err := checkTable(db); err != nil {
+		log.Println(err)
+		http.Error(w, "function receiptHandler: Fail to create table", http.StatusInternalServerError)
+		return
 	}
 
 	// JSONデータから名前を取得
@@ -303,4 +297,15 @@ func updateItem(db *gorm.DB, id int, amount int) error {
 	now := time.Now().In(jst)
 	err := db.Model(Stock{}).Where("id = ?", id).Updates(Stock{Amount: amount, Updated_at: now}).Error
 	return err
+}
+
+func checkTable(db *gorm.DB) error {
+	//テーブル存在チェック
+	if db.Migrator().HasTable(&Stock{}) == false {
+		//テーブル作成クエリを実行
+		if err := db.Migrator().CreateTable(&Stock{}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
